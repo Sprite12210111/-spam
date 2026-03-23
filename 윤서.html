@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>스팸 - 올인원 스터디 플래너</title>
+    <style>
+        :root {
+            --theme-color: #d1d8ff; 
+            --theme-dark: #7e8ebc;
+            --theme-light: #f3e8ff;
+            --text-color: #5a637a; 
+            --card-bg: rgba(255, 255, 255, 0.5);
+        }
+
+        body {
+            margin: 0; padding: 0;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh;
+            font-family: 'Pretendard', -apple-system, sans-serif;
+            background: linear-gradient(135deg, var(--theme-color), var(--theme-light));
+            color: var(--text-color);
+            transition: all 0.5s ease;
+            overflow: hidden;
+        }
+
+        .main-layout { display: grid; grid-template-columns: 360px 480px; gap: 20px; padding: 20px; height: 90vh; }
+
+        /* 왼쪽 패널 스크롤 가능하게 수정 */
+        .left-panel { overflow-y: auto; padding-right: 10px; display: flex; flex-direction: column; gap: 15px; }
+        .left-panel::-webkit-scrollbar { width: 5px; }
+        .left-panel::-webkit-scrollbar-thumb { background: var(--theme-color); border-radius: 10px; }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            padding: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            transition: all 0.3s ease;
+        }
+
+        .clock-card { text-align: center; }
+        #current-date { font-size: 0.85rem; font-weight: bold; color: var(--theme-dark); opacity: 0.8; }
+        #current-time { font-size: 1.8rem; font-weight: 900; color: var(--theme-dark); }
+
+        /* 타이머 공통 스타일 */
+        .timer-label { font-size: 0.8rem; font-weight: bold; color: var(--theme-dark); display: block; margin-bottom: 5px; }
+        .timer-display-big { font-size: 1.8rem; font-weight: 800; text-align: center; color: var(--theme-dark); margin: 5px 0; }
+        
+        .btn-theme { background: var(--theme-color); color: var(--text-color); border: none; cursor: pointer; font-weight: bold; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; }
+        .btn-outline { background: white; border: 1px solid var(--theme-color) !important; color: var(--theme-dark); cursor: pointer; font-weight: bold; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; }
+        .btn-reset { background: rgba(255,255,255,0.3); border: none; color: var(--theme-dark); cursor: pointer; font-size: 0.7rem !important; padding: 6px 10px; border-radius: 8px; }
+
+        /* 일반 타이머/스톱워치 탭 */
+        .tab-btn { flex: 1; border: none; background: rgba(255,255,255,0.3); padding: 5px; border-radius: 8px; cursor: pointer; font-size: 0.75rem; }
+        .tab-btn.active { background: white; color: var(--theme-dark); font-weight: bold; }
+
+        #yt-player-container { margin-top: 10px; border-radius: 15px; overflow: hidden; display: none; aspect-ratio: 16/9; }
+
+        .progress-wrapper { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+        .progress-container { flex: 1; background: rgba(255,255,255,0.4); border-radius: 8px; height: 10px; overflow: hidden; }
+        #progress-bar { background: var(--theme-color); height: 100%; width: 0%; transition: width 0.4s; }
+        #progress-percent { font-size: 0.75rem; font-weight: bold; color: var(--theme-dark); min-width: 30px; }
+
+        .whale-message { position: absolute; font-weight: bold; pointer-events: none; animation: whaleFade 2s forwards; z-index: 100; color: var(--theme-dark); background: rgba(255,255,255,0.95); padding: 5px 12px; border-radius: 12px; font-size: 0.85rem; border: 1px solid var(--theme-color); }
+        @keyframes whaleFade { 0% { opacity: 0; transform: translateY(0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-40px); } }
+    </style>
+</head>
+<body onclick="spawnWhale(event)">
+
+<div class="main-layout" onclick="event.stopPropagation()">
+    <div class="left-panel">
+        <div class="card clock-card">
+            <div id="current-date">0000년 00월 00일 월요일</div>
+            <div id="current-time">00:00:00</div>
+        </div>
+
+        <div class="card">
+            <span class="timer-label">🎵 Study Music</span>
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="yt-url" placeholder="유튜브 링크" style="flex:1; padding:6px; border-radius:8px; border:1px solid #eee; font-size:0.75rem; outline:none;">
+                <button onclick="loadVideo()" class="btn-theme">재생</button>
+            </div>
+            <div id="yt-player-container">
+                <iframe id="yt-player" width="100%" height="100%" src="" frameborder="0" allow="autoplay; encrypted-media"></iframe>
+            </div>
+        </div>
+
+        <div class="card">
+            <span class="timer-label">⏱️ 일반 타이머 / 스톱워치</span>
+            <div style="display:flex; gap:5px; margin-bottom:8px;">
+                <button class="tab-btn active" id="tab-sw" onclick="setMode('sw')">스톱워치</button>
+                <button class="tab-btn" id="tab-tm" onclick="setMode('tm')">타이머</button>
+            </div>
+            <div id="tm-setup-ui" style="display:none; justify-content:center; gap:5px; margin-bottom:8px;">
+                <input type="number" id="tm-m" placeholder="분" style="width:35px; border-radius:5px; border:1px solid #ddd; text-align:center;">
+                <input type="number" id="tm-s" placeholder="초" style="width:35px; border-radius:5px; border:1px solid #ddd; text-align:center;">
+                <button onclick="applyTimer()" class="btn-reset" style="padding:2px 8px;">설정</button>
+            </div>
+            <div id="gen-display" class="timer-display-big">00:00:00</div>
+            <div style="display:flex; gap:5px; justify-content:center;">
+                <button onclick="toggleGen()" id="btn-gen-toggle" class="btn-theme">시작</button>
+                <button onclick="resetGen()" class="btn-reset">리셋</button>
+            </div>
+        </div>
+
+        <div class="card" style="border: 2px solid var(--theme-color);">
+            <span class="pomo-status" id="pomo-status" style="font-size:0.8rem; font-weight:bold; color:var(--theme-dark);">🍅 뽀모도로 대기 중</span>
+            <div style="display:flex; justify-content:center; gap:5px; font-size:0.7rem; margin:5px 0;">
+                공부 <input type="number" id="pomo-study-time" value="25" style="width:25px;"> / 휴식 <input type="number" id="pomo-rest-time" value="5" style="width:25px;">
+            </div>
+            <div id="pomo-display" class="timer-display-big">25:00</div>
+            <div style="display:flex; gap:5px; justify-content:center;">
+                <button onclick="togglePomo()" id="btn-pomo-toggle" class="btn-theme">시작</button>
+                <button onclick="resetPomo()" class="btn-reset">리셋</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <span class="timer-label">✨ 오늘의 순공 합계</span>
+            <div id="total-study-log" style="font-size:0.85rem; font-weight:bold; color:var(--theme-dark); text-align:center; opacity:0.7;">00:00:00</div>
+            <div id="study-display" class="timer-display-big">00:00:00</div>
+            <div style="display:flex; gap:5px; justify-content:center;">
+                <button onclick="toggleStudy()" id="btn-study-toggle" class="btn-theme">시작</button>
+                <button onclick="saveStudy()" class="btn-outline">저장</button>
+                <button onclick="resetStudyAll()" class="btn-reset">초기화</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card planner-section">
+        <h2 style="margin:0 0 10px 0; font-size:1.2rem;">📖 Study Planner</h2>
+        <div class="progress-wrapper">
+            <div class="progress-container"><div id="progress-bar"></div></div>
+            <span id="progress-percent">0%</span>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <input type="text" id="todo-input" placeholder="할 일 입력..." onkeypress="if(event.keyCode==13) addTodo()" style="flex:1; padding:8px; border-radius:10px; border:1px solid #eee; outline:none;">
+            <button onclick="addTodo()" class="btn-theme" style="padding:0 15px; font-size:1.2rem;">+</button>
+        </div>
+        <ul id="todo-list" style="list-style:none; padding:0; max-height:200px; overflow-y:auto;"></ul>
+
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <div class="card" style="flex:1; padding:10px; text-align:center; font-size:0.75rem;">검정고시 <br> <span id="exam-dday" style="font-size:1rem; font-weight:bold;">D-?</span></div>
+            <div class="card" style="flex:1; padding:10px; text-align:center; font-size:0.75rem;">수능 <br> <span id="suneung-dday" style="font-size:1rem; font-weight:bold;">D-?</span></div>
+        </div>
+        <button onclick="pickMenu()" class="btn-theme" style="width:100%; padding:10px; margin-top:10px; border-radius:15px;"><span id="menu-display">오늘 저녁 메뉴 추천! 🍱</span></button>
+        
+        <div style="margin-top:15px; text-align:center; font-size:0.75rem;">
+            🎨 테마 컬러: <input type="color" id="colorPicker" value="#d1d8ff" oninput="changeTheme(this.value)">
+        </div>
+    </div>
+</div>
+
+<script>
+    /* 1. 일반 타이머/스톱워치 로직 */
+    let g_mode = 'sw', g_sec = 0, g_idx = null;
+    function setMode(m) {
+        g_mode = m; resetGen();
+        document.getElementById('tab-sw').className = m === 'sw' ? 'tab-btn active' : 'tab-btn';
+        document.getElementById('tab-tm').className = m === 'tm' ? 'tab-btn active' : 'tab-btn';
+        document.getElementById('tm-setup-ui').style.display = m === 'tm' ? 'flex' : 'none';
+    }
+    function applyTimer() {
+        const m = parseInt(document.getElementById('tm-m').value) || 0;
+        const s = parseInt(document.getElementById('tm-s').value) || 0;
+        g_sec = (m * 60) + s; document.getElementById('gen-display').innerText = fmt(g_sec);
+    }
+    function toggleGen() {
+        const btn = document.getElementById('btn-gen-toggle');
+        if(g_idx) { clearInterval(g_idx); g_idx = null; btn.innerText = "시작"; }
+        else {
+            if(g_mode === 'tm' && g_sec <= 0) return alert("시간을 설정해주세요!");
+            g_idx = setInterval(() => {
+                if(g_mode === 'sw') g_sec++;
+                else { g_sec--; if(g_sec <= 0) { clearInterval(g_idx); g_idx = null; alert("일반 타이머 종료! 🐋"); btn.innerText = "시작"; } }
+                document.getElementById('gen-display').innerText = fmt(g_sec);
+            }, 1000);
+            btn.innerText = "정지";
+        }
+    }
+    function resetGen() { if(g_idx) toggleGen(); g_sec = 0; document.getElementById('gen-display').innerText = "00:00:00"; }
+
+    /* 공통 포맷 */
+    const fmt = (s) => {
+        if(s < 0) s = 0;
+        const h = Math.floor(s/3600).toString().padStart(2,'0');
+        const m = Math.floor((s%3600)/60).toString().padStart(2,'0');
+        const sec = (s%60).toString().padStart(2,'0');
+        return `${h}:${m}:${sec}`;
+    }
+
+    /* 유튜브 로직 */
+    function loadVideo() {
+        const url = document.getElementById('yt-url').value;
+        let id = '';
+        if(url.includes('v=')) id = url.split('v=')[1].split('&')[0];
+        else if(url.includes('be/')) id = url.split('be/')[1];
+        if(id) { document.getElementById('yt-player').src = `https://www.youtube.com/embed/${id}?autoplay=1`; document.getElementById('yt-player-container').style.display = 'block'; }
+    }
+
+    /* 뽀모도로 로직 */
+    let p_sec = 0, p_idx = null, isStudy = true;
+    function togglePomo() {
+        const btn = document.getElementById('btn-pomo-toggle');
+        const status = document.getElementById('pomo-status');
+        if(p_idx) { clearInterval(p_idx); p_idx = null; btn.innerText = "시작"; }
+        else {
+            if(p_sec <= 0) { p_sec = (parseInt(document.getElementById('pomo-study-time').value) || 25) * 60; isStudy = true; }
+            p_idx = setInterval(() => {
+                p_sec--;
+                if(p_sec < 0) {
+                    if(isStudy) { alert("공부 끝! 휴식 시간! 🍃"); p_sec = (parseInt(document.getElementById('pomo-rest-time').value) || 5) * 60; isStudy = false; status.innerText = "🍃 휴식 중..."; }
+                    else { alert("휴식 끝! 열공 시작! 🔥"); p_sec = (parseInt(document.getElementById('pomo-study-time').value) || 25) * 60; isStudy = true; status.innerText = "✏️ 공부 중..."; }
+                }
+                const pm = Math.floor(p_sec/60).toString().padStart(2,'0'), ps = (p_sec%60).toString().padStart(2,'0');
+                document.getElementById('pomo-display').innerText = `${pm}:${ps}`;
+            }, 1000);
+            btn.innerText = "정지"; status.innerText = isStudy ? "✏️ 공부 중..." : "🍃 휴식 중...";
+        }
+    }
+    function resetPomo() { if(p_idx) togglePomo(); p_sec = 0; document.getElementById('pomo-display').innerText = "25:00"; document.getElementById('pomo-status').innerText = "🍅 뽀모도로 대기 중"; }
+
+    /* 순공 타이머 로직 */
+    let s_sec = 0, total_s = 0, s_idx = null;
+    function toggleStudy() {
+        const btn = document.getElementById('btn-study-toggle');
+        if(s_idx) { clearInterval(s_idx); s_idx = null; btn.innerText = "시작"; }
+        else { s_idx = setInterval(() => { s_sec++; document.getElementById('study-display').innerText = fmt(s_sec); }, 1000); btn.innerText = "정지"; }
+    }
+    function saveStudy() { if(s_idx) toggleStudy(); total_s += s_sec; document.getElementById('total-study-log').innerText = fmt(total_s); s_sec = 0; document.getElementById('study-display').innerText = "00:00:00"; }
+    function resetStudyAll() { if(confirm("초기화할까요?")) { saveStudy(); total_s = 0; document.getElementById('total-study-log').innerText = "00:00:00"; } }
+
+    /* 시계 및 기타 */
+    function updateClock() {
+        const now = new Date(); const days = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+        document.getElementById('current-date').innerText = `${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 ${days[now.getDay()]}`;
+        const h = now.getHours(), m = now.getMinutes().toString().padStart(2,'0'), s = now.getSeconds().toString().padStart(2,'0');
+        document.getElementById('current-time').innerText = `${h >= 12 ? '오후':'오전'} ${h%12||12}:${m}:${s}`;
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    function changeTheme(color) {
+        document.documentElement.style.setProperty('--theme-color', color);
+        const adjust = (hex, amt) => {
+            let num = parseInt(hex.slice(1), 16), r = (num >> 16) + amt, b = ((num >> 8) & 0x00FF) + amt, g = (num & 0x0000FF) + amt;
+            const clamp = v => Math.min(255, Math.max(0, v));
+            return "#" + (clamp(g) | (clamp(b) << 8) | (clamp(r) << 16)).toString(16).padStart(6, '0');
+        };
+        document.documentElement.style.setProperty('--theme-dark', adjust(color, -50));
+        document.documentElement.style.setProperty('--theme-light', adjust(color, 40));
+    }
+
+    function updateDday() {
+        const calc = (t) => {
+            const d = Math.ceil((new Date(t) - new Date().setHours(0,0,0,0)) / 86400000);
+            return d === 0 ? "D-Day" : (d > 0 ? "D-" + d : "D+" + Math.abs(d));
+        };
+        document.getElementById('exam-dday').innerText = calc("2026-04-04");
+        document.getElementById('suneung-dday').innerText = calc("2026-11-19");
+    }
+    updateDday();
+
+    function addTodo() {
+        const v = document.getElementById('todo-input').value; if(!v.trim()) return;
+        const li = document.createElement('li'); li.style = "display:flex; align-items:center; gap:8px; padding:6px; background:rgba(255,255,255,0.4); border-radius:10px; margin-bottom:5px;";
+        li.innerHTML = `<input type="checkbox" onchange="upProg(this)"> <span style="flex:1; font-size:0.85rem;">${v}</span> <button onclick="this.parentElement.remove(); upProg();" style="border:none; background:none; color:var(--theme-dark); cursor:pointer;">×</button>`;
+        document.getElementById('todo-list').appendChild(li); document.getElementById('todo-input').value = ''; upProg();
+    }
+    function upProg(el) {
+        if(el) el.parentElement.style.opacity = el.checked ? "0.5" : "1";
+        const it = document.querySelectorAll('#todo-list li'), ck = document.querySelectorAll('#todo-list input:checked');
+        const per = it.length ? Math.round(ck.length/it.length*100) : 0;
+        document.getElementById('progress-bar').style.width = per + '%'; document.getElementById('progress-percent').innerText = per + '%';
+    }
+    function spawnWhale(e) {
+        const msg = ["할 수 있어!", "최고야!", "집중!", "화이팅!", "made by 윤서"];
+        const w = document.createElement('div'); w.className = 'whale-message';
+        w.innerHTML = `🐋 ${msg[Math.floor(Math.random()*msg.length)]}`;
+        w.style.left = e.clientX + 'px'; w.style.top = e.clientY + 'px';
+        document.body.appendChild(w); setTimeout(()=>w.remove(), 2000);
+    }
+    function pickMenu() { document.getElementById('menu-display').innerText = ["마라탕", "초밥", "치킨", "떡볶이", "돈까스"][Math.floor(Math.random()*5)] + " 어때 🍱"; }
+</script>
+</body>
+</html>
